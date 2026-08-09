@@ -1,135 +1,54 @@
-# Task Manager REST API
+# Task Manager API
 
-A simple RESTful API built using **Node.js and Express.js** for managing tasks.  
-This project demonstrates CRUD operations, middleware, validation, logging, and centralized error handling.
+A RESTful Task Management API built using **Node.js, Express.js, MongoDB, and Mongoose**. This project extends the Task Management backend from Practical 4 by replacing the in-memory task storage with a persistent MongoDB database and enforcing data validation using Mongoose schemas.
 
-## Features
+## Student Information
 
-- Create, read, update, and delete tasks
-- In-memory task storage
-- Request logging middleware
-- Content-Type validation for POST/PUT requests
-- Task ID validation middleware
-- Custom 404 handler
-- Global error handling middleware
-- Appropriate HTTP status codes
+- **Student Name:** Priyanshi Gajiwala
+- **Enrollment No.:** 24IT019
+- **Course:** Advanced Web Development Frameworks
+- **Course Code:** ITUE301
+- **Practical:** 5 - MongoDB Integration and Schema Design with Mongoose
+
+---
+
+## Objective
+
+The objective of this practical is to:
+
+- Connect a MongoDB database to an Express.js server using Mongoose.
+- Design a Mongoose schema for Task documents.
+- Apply schema-level validation.
+- Perform CRUD operations using Mongoose model methods.
+- Handle validation errors using structured JSON responses.
+- Persist task data in MongoDB instead of an in-memory array.
+
+---
 
 ## Technologies Used
 
 - Node.js
 - Express.js
-- JavaScript
+- MongoDB
+- Mongoose
+- dotenv
 - Postman
-- Visual Studio Code
+- MongoDB Compass
 
-## Installation
+---
 
-1. Clone the repository:
-
-```bash
-git clone <your-repository-url>
-```
-
-2. Navigate to the project folder:
-
-```bash
-cd task-manager-api-24IT019
-```
-
-3. Install dependencies:
-
-```bash
-npm install
-```
-
-4. Start the server:
-
-```bash
-node server.js
-```
-
-The server will run on:
+## Project Structure
 
 ```text
-http://localhost:5000
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description | Status Code |
-|--------|----------|-------------|-------------|
-| GET | `/tasks` | Get all tasks | 200 |
-| POST | `/tasks` | Create a new task | 201 |
-| PUT | `/tasks/:id` | Update an existing task | 200 / 404 |
-| DELETE | `/tasks/:id` | Delete a task | 200 / 404 |
-
-## Example Task
-
-```json
-{
-  "id": 1,
-  "title": "Learn Node.js",
-  "completed": false
-}
-```
-
-## Middleware
-
-### Request Logging
-
-Logs the HTTP method, URL, and timestamp for every incoming request.
-
-Example:
-
-```text
-GET /tasks - 2026-08-02T15:30:00.000Z
-```
-
-### Content-Type Validation
-
-POST and PUT requests must contain:
-
-```text
-Content-Type: application/json
-```
-
-### Task ID Validation
-
-Validates the task ID before the request reaches the controller.
-
-### 404 Handler
-
-Returns a structured response for undefined routes:
-
-```json
-{
-  "error": "Route not found"
-}
-```
-
-### Global Error Handler
-
-Handles server errors and returns:
-
-```json
-{
-  "error": "Something went wrong"
-}
-```
-
-## HTTP Status Codes
-
-- `200` - Successful request
-- `201` - Resource created successfully
-- `400` - Bad request
-- `404` - Resource/route not found
-- `500` - Internal server error
-
-## Learning Outcome
-
-Successfully designed and implemented a RESTful API using Node.js and Express with CRUD operations, middleware, validation, proper HTTP status codes, logging, 404 handling, and centralized error handling.
-
-## Author
-
-**Priyanshi Gajiwala**  
-Roll No: **24IT019**
+task-manager-api/
+│
+├── models/
+│   └── Task.js
+│
+├── .env
+├── .env.example
+├── .gitignore
+├── package.json
+├── package-lock.json
+├── README.md
+└── server.js
