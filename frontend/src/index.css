@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0F172A;
+  --color-surface: #1E293B;
+  --color-primary: #38BDF8;
+  --color-secondary: #8B5CF6;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html.light {
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-primary: #0284C7;
+  --color-secondary: #7C3AED;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
+}
+
+/* Light mode utility overrides for transparent elements and borders */
+html.light .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+html.light .border-white\/5 {
+  border-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+html.light .bg-white\/5 {
+  background-color: rgba(15, 23, 42, 0.03) !important;
+}
+
+html.light .bg-white\/10 {
+  background-color: rgba(15, 23, 42, 0.05) !important;
+}
+
+html.light .hover\:bg-white\/5:hover {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+html.light .hover\:bg-white\/10:hover {
+  background-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+html.light .bg-surface\/40 {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+html.light .bg-surface\/60 {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+}
+
+html.light .bg-surface\/80 {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+html.light .bg-background\/80 {
+  background-color: rgba(248, 250, 252, 0.8) !important;
+}
+
+html.light .bg-background\/95 {
+  background-color: rgba(248, 250, 252, 0.95) !important;
+}
+
+html.light .text-background {
+  color: #FFFFFF !important;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-primary) 50%, var(--color-surface));
+}
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  header, footer, nav, .no-print {
+    display: none !important;
+  }
+}
