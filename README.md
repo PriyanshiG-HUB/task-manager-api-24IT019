@@ -1,6 +1,6 @@
-# Task Manager API — Layered Architecture (Phase 1)
+# Task Manager API — Layered Architecture & Authentication Pipeline
 
-A production-ready RESTful Task Management API built using **Node.js, Express.js, MongoDB, and Mongoose**. Refactored into a clean, modular layered architecture (Controller-Service-Model pattern) with centralized error handling, response standardization, and API versioning.
+A production-ready RESTful Task Management API built using **Node.js, Express.js, MongoDB, Mongoose, bcryptjs, and JSON Web Tokens (JWT)**. Built on a modular layered architecture (Controller-Service-Model pattern) with centralized error handling, response standardization, API versioning, input validation, and JWT-based authentication middleware pipeline.
 
 ## Student Information
 
@@ -8,51 +8,60 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Enrollment No.:** 24IT019
 - **Course:** Advanced Web Development Frameworks
 - **Course Code:** ITUE301
-- **Practical:** 5 - MongoDB Integration and Schema Design with Mongoose (Phase 1 Refactor)
+- **Practical:** 7 - Authentication and Middleware Pipeline
 
 ---
 
 ## Technical Stack
 
-- **Runtime:** Node.js
+- **Runtime:** Node.js (CommonJS)
 - **Framework:** Express.js
 - **Database:** MongoDB
 - **ODM:** Mongoose
+- **Authentication & Security:** JSON Web Token (`jsonwebtoken`), Password Hashing (`bcryptjs`)
 - **Configuration:** dotenv
+- **CORS:** cors
 
 ---
 
-## Project Architecture
+## Project Architecture & Middleware Pipeline
 
-The application follows a clean layered architecture separating concerns into routes, controllers, services, models, database configuration, and middleware.
+The application adheres to a clean layered architecture with an Express middleware execution pipeline:
 
 ```text
 Client Request
       │
-      ▼
-┌─────────────┐
-│   Routes    │  (src/routes/task.routes.js)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Controllers │  (src/controllers/task.controller.js)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Services   │  (src/services/task.service.js)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   Models    │  (src/models/Task.js)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  MongoDB    │  (src/config/db.js)
-└─────────────┘
+      ▼ (Authorization: Bearer <token>)
+┌─────────────────────────┐
+│     Auth Middleware     │  (src/middleware/auth.middleware.js)
+│  (Verify JWT & req.user)│
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│  Validation Middleware  │  (src/middleware/validation.middleware.js)
+│  (Validate req.body)    │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│       Controllers       │  (src/controllers/auth.controller.js / task.controller.js)
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│        Services         │  (src/services/auth.service.js / task.service.js)
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│         Models          │  (src/models/User.js / Task.js)
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│        MongoDB          │  (src/config/db.js)
+└─────────────────────────┘
 ```
 
 ### Directory Structure
@@ -62,31 +71,37 @@ task-manager-api-24IT019/
 │
 ├── src/
 │   ├── config/
-│   │   └── db.js                 # MongoDB connection setup
+│   │   └── db.js                       # MongoDB connection setup
 │   │
 │   ├── controllers/
-│   │   └── task.controller.js    # HTTP Request & Response handlers
+│   │   ├── auth.controller.js          # Authentication HTTP handlers (register, login, me)
+│   │   └── task.controller.js          # Task HTTP handlers
 │   │
 │   ├── middleware/
-│   │   └── error.middleware.js   # Global error & 404 middleware
+│   │   ├── auth.middleware.js          # JWT verification & req.user assignment
+│   │   ├── error.middleware.js         # Global error, duplicate key & 404 middleware
+│   │   └── validation.middleware.js   # Request payload validation middleware
 │   │
 │   ├── models/
-│   │   └── Task.js               # Mongoose schema and model definition
+│   │   ├── Task.js                     # Task Mongoose schema & model
+│   │   └── User.js                     # User Mongoose schema & model (email, password)
 │   │
 │   ├── routes/
-│   │   └── task.routes.js        # Endpoint route definitions
+│   │   ├── auth.routes.js              # Auth endpoints (/api/v1/auth)
+│   │   └── task.routes.js              # Task endpoints (/api/v1/tasks)
 │   │
 │   ├── services/
-│   │   └── task.service.js       # Business logic & database operations
+│   │   ├── auth.service.js             # Auth business logic, bcrypt hashing & JWT generation
+│   │   └── task.service.js             # Task business logic & database queries
 │   │
 │   ├── utils/
-│   │   └── response.js           # Standard response helpers
+│   │   └── response.js                 # Standardized JSON response helpers
 │   │
-│   ├── app.js                    # Express app configuration & middleware
-│   └── server.js                 # HTTP server bootstrap & DB initialization
+│   ├── app.js                          # Express app configuration & route mounting
+│   └── server.js                       # HTTP server bootstrap & DB initialization
 │
-├── .env                          # Local environment variables (git-ignored)
-├── .env.example                  # Template for environment variables
+├── .env                                # Local environment variables (git-ignored)
+├── .env.example                        # Template for environment variables
 ├── .gitignore
 ├── package.json
 └── README.md
@@ -94,11 +109,38 @@ task-manager-api-24IT019/
 
 ---
 
+## Practical 7: Authentication & Middleware Pipeline
+
+### 1. Overview
+Practical 7 introduces secure user authentication and request validation without altering existing Task schema or breaking layered architecture.
+
+- **Password Hashing:** Passwords are never stored in plain text. `bcryptjs` is used to hash passwords with a salt work factor of 10 (`bcrypt.hash(password, 10)`).
+- **Stateless Authentication:** Upon successful login, the server signs a JSON Web Token (JWT) using `process.env.JWT_SECRET` containing the user payload (`id`, `email`) and a 1-hour expiration.
+- **Middleware Pipeline:** Incoming protected requests are intercepted by `authMiddleware` which extracts and verifies the `Bearer <token>`. Valid requests populate `req.user` and pass execution to subsequent validators and controllers.
+- **Input Validation:** Request schemas are validated in dedicated middleware (`validateRegister`, `validateLogin`, `validateTask`) before reaching services or MongoDB.
+
+---
+
+## Environment Variables
+
+Configure `.env` using `.env.example`:
+
+```env
+MONGO_URI=mongodb://127.0.0.1:27017/task_manager
+PORT=5000
+NODE_ENV=development
+JWT_SECRET=your_jwt_secret_key_here
+```
+
+> **Security Note:** `.env` is strictly git-ignored. `JWT_SECRET` must never be hardcoded or committed into version control.
+
+---
+
 ## Installation & Setup
 
 1. **Clone & Navigate:**
    ```bash
-   cd task-manager-api-24IT019
+   cd task-manager-api
    ```
 
 2. **Install Dependencies:**
@@ -106,144 +148,177 @@ task-manager-api-24IT019/
    npm install
    ```
 
-3. **Configure Environment Variables:**
-   Copy `.env.example` to `.env` and fill in your configuration:
-   ```bash
-   cp .env.example .env
-   ```
+3. **Start MongoDB:**
+   Ensure MongoDB service is running locally on port `27017` or update `MONGO_URI`.
 
-   `.env` Example:
-   ```env
-   PORT=5000
-   MONGO_URI=mongodb://127.0.0.1:27017/task_manager
-   NODE_ENV=development
-   ```
-
-4. **Start MongoDB:**
-   Ensure MongoDB service is running locally on port `27017` or supply a valid MongoDB Atlas connection URI in `MONGO_URI`.
-
-5. **Run the API:**
-
-   - Production / Standard mode:
+4. **Run the Server:**
+   - Development Mode:
+     ```bash
+     npm run dev
+     ```
+   - Production Mode:
      ```bash
      npm start
      ```
 
-   - Development mode (with auto-reload):
-     ```bash
-     npm run dev
-     ```
-
 ---
 
-## API Endpoints & Reference
+## API Endpoints Reference
 
 **Base URL:** `http://localhost:5000/api/v1`
 
-### Health Check Endpoint
+### Authentication Endpoints (`/api/v1/auth`)
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/v1/health` | Check API system health & DB status |
+| Method | Endpoint | Auth Required | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/auth/register` | No | Register new user account with hashed password |
+| `POST` | `/api/v1/auth/login` | No | Authenticate user credentials and return JWT token |
+| `GET` | `/api/v1/auth/me` | Yes (`Bearer <token>`) | Fetch current authenticated user profile |
 
-**Response Example:**
-```json
-{
-  "success": true,
-  "message": "API is healthy",
-  "data": {
-    "status": "ok",
-    "database": "connected",
-    "uptime": 12.34
-  }
-}
-```
+### Task Endpoints (`/api/v1/tasks`) — Protected
 
----
+| Method | Endpoint | Auth Required | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/tasks` | Yes (`Bearer <token>`) | Get all tasks |
+| `GET` | `/api/v1/tasks/:id` | Yes (`Bearer <token>`) | Get task by ID |
+| `POST` | `/api/v1/tasks` | Yes (`Bearer <token>`) | Create a new task (Validates title) |
+| `PUT` | `/api/v1/tasks/:id` | Yes (`Bearer <token>`) | Update task by ID (Validates title) |
+| `DELETE` | `/api/v1/tasks/:id` | Yes (`Bearer <token>`) | Delete task by ID |
 
-### Task Endpoints
+### System Endpoint
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/v1/tasks` | Get all tasks |
-| `GET` | `/api/v1/tasks/:id` | Get task by ID |
-| `POST` | `/api/v1/tasks` | Create a new task |
-| `PUT` | `/api/v1/tasks/:id` | Update task by ID |
-| `DELETE` | `/api/v1/tasks/:id` | Delete task by ID |
+| Method | Endpoint | Auth Required | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/health` | No | Check API system health & DB connectivity |
 
 ---
 
 ## Request & Response Examples
 
-### 1. Create a Task (`POST /api/v1/tasks`)
+### 1. User Registration (`POST /api/v1/auth/register`)
 
-**Headers:**
-`Content-Type: application/json`
-
-**Body:**
+**Headers:** `Content-Type: application/json`  
+**Request Body:**
 ```json
 {
-  "title": "Complete Phase 1 Refactoring",
-  "description": "Refactor Task Manager API into layered architecture",
-  "priority": "high"
+  "email": "priyanshi@example.com",
+  "password": "password123"
 }
 ```
 
-**Success Response (201 Created):**
+**Response (201 Created):**
 ```json
 {
   "success": true,
-  "message": "Task created successfully",
+  "message": "User registered successfully",
   "data": {
-    "_id": "64f9b8c2d1e2f3a4b5c6d7e8",
-    "title": "Complete Phase 1 Refactoring",
-    "description": "Refactor Task Manager API into layered architecture",
-    "completed": false,
-    "priority": "high",
-    "createdAt": "2026-08-12T13:50:00.000Z",
-    "__v": 0
+    "_id": "6aaa47e6571aef5879e36c58",
+    "email": "priyanshi@example.com",
+    "createdAt": "2026-09-16T07:40:22.341Z",
+    "updatedAt": "2026-09-16T07:40:22.341Z"
   }
 }
 ```
 
 ---
 
-### 2. Validation Error Response (400 Bad Request)
+### 2. User Login (`POST /api/v1/auth/login`)
 
-If `title` is missing:
-
+**Headers:** `Content-Type: application/json`  
+**Request Body:**
 ```json
 {
-  "success": false,
-  "message": "Validation failed",
-  "details": {
-    "title": "Title is required"
+  "email": "priyanshi@example.com",
+  "password": "password123"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "_id": "6aaa47e6571aef5879e36c58",
+      "email": "priyanshi@example.com",
+      "createdAt": "2026-09-16T07:40:22.341Z",
+      "updatedAt": "2026-09-16T07:40:22.341Z"
+    }
   }
 }
 ```
 
 ---
 
-### 3. Resource Not Found (404 Not Found)
+### 3. Get Current User Profile (`GET /api/v1/auth/me`)
 
-`GET /api/v1/tasks/64f9b8c2d1e2f3a4b5c6d700`
+**Headers:**
+`Authorization: Bearer <JWT_TOKEN>`
 
+**Response (200 OK):**
 ```json
 {
-  "success": false,
-  "message": "Task not found"
+  "success": true,
+  "message": "User profile fetched successfully",
+  "data": {
+    "_id": "6aaa47e6571aef5879e36c58",
+    "email": "priyanshi@example.com",
+    "createdAt": "2026-09-16T07:40:22.341Z",
+    "updatedAt": "2026-09-16T07:40:22.341Z"
+  }
 }
 ```
 
 ---
 
-### 4. Unknown Route (404 Not Found)
+### 4. Protected Task Access (`GET /api/v1/tasks`)
 
-`GET /api/v1/does-not-exist`
-
+**Without Token (401 Unauthorized):**
 ```json
 {
   "success": false,
-  "message": "Route not found"
+  "message": "Authentication token required"
+}
+```
+
+**With Valid Token (200 OK):**
+`Authorization: Bearer <JWT_TOKEN>`
+```json
+{
+  "success": true,
+  "message": "Tasks fetched successfully",
+  "data": [
+    {
+      "_id": "6aaa47e6571aef5879e36c59",
+      "title": "Practical 7 Authentication",
+      "description": "Testing JWT protected task creation",
+      "completed": false,
+      "priority": "high",
+      "createdAt": "2026-09-16T07:40:22.638Z",
+      "__v": 0
+    }
+  ]
+}
+```
+
+---
+
+### 5. Input Validation Failures (400 Bad Request)
+
+- **Missing Title on Task Creation:**
+```json
+{
+  "success": false,
+  "message": "Task title is required"
+}
+```
+
+- **Short Password on Registration:**
+```json
+{
+  "success": false,
+  "message": "Password must be at least 6 characters long"
 }
 ```

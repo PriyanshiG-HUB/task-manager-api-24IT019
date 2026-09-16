@@ -37,6 +37,11 @@ const errorHandler = (err, req, res, next) => {
         return sendError(res, 400, "Validation failed", details);
     }
 
+    // Handle MongoDB Duplicate Key Error (E11000)
+    if (err.code === 11000) {
+        return sendError(res, 409, "User already exists with this email");
+    }
+
     // Handle Mongoose Invalid ObjectId CastError
     if (err.name === "CastError") {
         return sendError(res, 400, "Invalid task ID");

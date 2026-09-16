@@ -2,6 +2,7 @@ const cors = require("cors");
 const express = require("express");
 const mongoose = require("mongoose");
 const taskRoutes = require("./routes/task.routes");
+const authRoutes = require("./routes/auth.routes");
 const { notFoundHandler, errorHandler } = require("./middleware/error.middleware");
 const { sendSuccess } = require("./utils/response");
 
@@ -33,6 +34,10 @@ app.get("/api/v1/health", (req, res) => {
         uptime: process.uptime()
     });
 });
+
+// Authentication Routes
+app.use("/api/v1/auth", authRoutes);
+app.use("/auth", authRoutes);
 
 // Primary Versioned Task Routes
 app.use("/api/v1/tasks", taskRoutes);
