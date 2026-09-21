@@ -37,18 +37,25 @@ export interface UserProfile {
 }
 
 /**
- * Centralized response handler with 401 redirection and error unwrapping
+ * Centralized response handler with 401 redirection and error unwrapping.
+ * For auth endpoints (like /auth/login), 401 indicates invalid credentials rather than an expired session.
  */
-async function handleResponse<T>(response: Response): Promise<T> {
+async function handleResponse<T>(
+  response: Response,
+  options?: { isAuthEndpoint?: boolean }
+): Promise<T> {
+  const result = await response.json().catch(() => ({}));
+
   if (response.status === 401) {
+    if (options?.isAuthEndpoint) {
+      throw new Error(result.message || "Invalid email or password");
+    }
     removeToken();
     if (typeof window !== "undefined" && window.location.pathname !== "/login") {
       window.location.href = "/login?expired=true";
     }
-    throw new Error("Session expired. Please login again.");
+    throw new Error(result.message || "Session expired. Please login again.");
   }
-
-  const result = await response.json().catch(() => ({}));
 
   if (!response.ok || result.success === false) {
     throw new Error(result.message || "An error occurred");
@@ -84,7 +91,7 @@ export async function registerApi(credentials: {
     body: JSON.stringify(credentials),
   });
 
-  return handleResponse<UserProfile>(response);
+  return handleResponse<UserProfile>(response, { isAuthEndpoint: true });
 }
 
 export async function loginApi(credentials: {
@@ -97,7 +104,7 @@ export async function loginApi(credentials: {
     body: JSON.stringify(credentials),
   });
 
-  return handleResponse<AuthResponseData>(response);
+  return handleResponse<AuthResponseData>(response, { isAuthEndpoint: true });
 }
 
 export async function getMe(): Promise<UserProfile> {

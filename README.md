@@ -8,7 +8,8 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Enrollment No.:** 24IT019
 - **Course:** Advanced Web Development Frameworks
 - **Course Code:** ITUE301
-- **Practical:** 7 - Authentication and Middleware Pipeline
+- **Practical:** 7 (Authentication and Middleware Pipeline) & 8 (Performance Optimization and Lazy Loading)
+- **Practical 8 Documentation:** [docs/practical-8-performance.md](docs/practical-8-performance.md)
 
 ---
 
@@ -322,3 +323,11 @@ JWT_SECRET=your_jwt_secret_key_here
   "message": "Password must be at least 6 characters long"
 }
 ```
+
+---
+
+## Practical 8 — Performance Optimization & Lazy Loading
+
+Comprehensive frontend performance optimization, React route-based code splitting, `React.lazy()`, `Suspense`, bundle measurements, and Chrome DevTools Network analysis are documented in:
+
+📄 **[docs/practical-8-performance.md](docs/practical-8-performance.md)**

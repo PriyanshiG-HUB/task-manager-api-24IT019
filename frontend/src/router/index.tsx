@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ComponentType } from 'react'
+import { lazy, Suspense, useState, useEffect, type ComponentType } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -18,12 +18,34 @@ const Tasks = lazy(() => import('@/pages/Tasks'))
 const Login = lazy(() => import('@/pages/Login'))
 const Register = lazy(() => import('@/pages/Register'))
 
+/**
+ * Suspense fallback component with a 300ms debounce delay.
+ * Prevents UI flicker / flashing spinners on rapid route transitions or cached chunks,
+ * while providing accessible, meaningful feedback during slower network fetches.
+ */
 function PageLoader() {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShow(true)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (!show) {
+    return null
+  }
+
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
+    <div
+      className="flex min-h-[60vh] items-center justify-center"
+      role="status"
+      aria-live="polite"
+    >
       <div className="flex flex-col items-center gap-4">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-text-secondary">Loading...</p>
+        <p className="text-sm font-medium text-text-secondary">Loading page...</p>
       </div>
     </div>
   )
