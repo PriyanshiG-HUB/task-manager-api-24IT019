@@ -44,6 +44,11 @@ app.use("/auth", authRoutes);
 app.use("/api/v1/cache", cacheRoutes);
 app.use("/cache", cacheRoutes);
 
+// Contact Message Routes (Asynchronous with MongoDB persistence)
+const messageRoutes = require("./routes/message.routes");
+app.use("/api/v1/messages", messageRoutes);
+app.use("/messages", messageRoutes);
+
 // Primary Versioned Task Routes
 app.use("/api/v1/tasks", taskRoutes);
 

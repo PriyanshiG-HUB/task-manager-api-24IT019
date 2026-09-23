@@ -159,3 +159,48 @@ export async function deleteTask(id: string): Promise<void> {
 
   await handleResponse<void>(response);
 }
+
+// ==================== CONTACT MESSAGE APIS ====================
+
+export interface ContactMessageData {
+  name: string;
+  email: string;
+  message: string;
+}
+
+export interface ContactMessage {
+  _id: string;
+  name: string;
+  email: string;
+  message: string;
+  createdAt: string;
+  read?: boolean;
+}
+
+/**
+ * Asynchronously send a contact message to the backend (persisted in MongoDB)
+ */
+export async function sendContactMessage(
+  data: ContactMessageData
+): Promise<ContactMessage> {
+  const response = await fetch(`${API_BASE_URL}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  return handleResponse<ContactMessage>(response);
+}
+
+/**
+ * Fetch received contact messages (Protected)
+ */
+export async function getContactMessages(): Promise<ContactMessage[]> {
+  const response = await fetch(`${API_BASE_URL}/messages`, {
+    method: "GET",
+    headers: getHeaders(false),
+  });
+
+  return handleResponse<ContactMessage[]>(response);
+}
+

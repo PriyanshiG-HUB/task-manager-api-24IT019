@@ -68,8 +68,34 @@ const validateTask = (req, res, next) => {
     next();
 };
 
+/**
+ * Validate Contact Message Payload
+ */
+const validateMessage = (req, res, next) => {
+    const { name, email, message } = req.body || {};
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+        return sendError(res, 400, "Name is required");
+    }
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+        return sendError(res, 400, "Email is required");
+    }
+
+    if (!isValidEmail(email.trim())) {
+        return sendError(res, 400, "Invalid email format");
+    }
+
+    if (!message || typeof message !== "string" || !message.trim()) {
+        return sendError(res, 400, "Message is required");
+    }
+
+    next();
+};
+
 module.exports = {
     validateRegister,
     validateLogin,
-    validateTask
+    validateTask,
+    validateMessage
 };
