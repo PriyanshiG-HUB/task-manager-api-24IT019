@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const taskRoutes = require("./routes/task.routes");
 const authRoutes = require("./routes/auth.routes");
+const cacheRoutes = require("./routes/cache.routes");
 const { notFoundHandler, errorHandler } = require("./middleware/error.middleware");
 const { sendSuccess } = require("./utils/response");
 
@@ -38,6 +39,10 @@ app.get("/api/v1/health", (req, res) => {
 // Authentication Routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/auth", authRoutes);
+
+// Cache Debug & Statistics Routes
+app.use("/api/v1/cache", cacheRoutes);
+app.use("/cache", cacheRoutes);
 
 // Primary Versioned Task Routes
 app.use("/api/v1/tasks", taskRoutes);

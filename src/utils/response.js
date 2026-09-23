@@ -10,7 +10,7 @@ const sendSuccess = (res, statusCode = 200, message = "Success", data = null) =>
         success: true,
         message
     };
-    if (data !== null && data !== undefined) {
+    if (arguments.length >= 4 || (data !== null && data !== undefined)) {
         response.data = data;
     }
     return res.status(statusCode).json(response);

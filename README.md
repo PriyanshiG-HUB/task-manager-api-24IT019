@@ -8,8 +8,9 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Enrollment No.:** 24IT019
 - **Course:** Advanced Web Development Frameworks
 - **Course Code:** ITUE301
-- **Practical:** 7 (Authentication and Middleware Pipeline) & 8 (Performance Optimization and Lazy Loading)
+- **Practical:** 7 (Authentication and Middleware Pipeline), 8 (Performance Optimization and Lazy Loading) & 9 (In-Memory Caching and Query Optimization)
 - **Practical 8 Documentation:** [docs/practical-8-performance.md](docs/practical-8-performance.md)
+- **Practical 9 Documentation:** [docs/practical-9-caching.md](docs/practical-9-caching.md)
 
 ---
 
@@ -20,6 +21,7 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Database:** MongoDB
 - **ODM:** Mongoose
 - **Authentication & Security:** JSON Web Token (`jsonwebtoken`), Password Hashing (`bcryptjs`)
+- **In-Memory Caching:** `node-cache`
 - **Configuration:** dotenv
 - **CORS:** cors
 
@@ -331,3 +333,24 @@ JWT_SECRET=your_jwt_secret_key_here
 Comprehensive frontend performance optimization, React route-based code splitting, `React.lazy()`, `Suspense`, bundle measurements, and Chrome DevTools Network analysis are documented in:
 
 📄 **[docs/practical-8-performance.md](docs/practical-8-performance.md)**
+
+---
+
+## Practical 9 — In-Memory Caching & Query Optimization
+
+Server-side in-memory caching using `node-cache` with strict post-write invalidation guarantees, cache hit/miss tracking, debug endpoints, and response-time measurements.
+
+### Key Architectural Highlights:
+- **Engine:** `node-cache` with a default TTL of 60 seconds (configurable via `CACHE_TTL` environment variable).
+- **All-Tasks Cache:** `GET /api/v1/tasks` caches the task collection under the key `'all_tasks'`.
+- **Single-Task Cache:** `GET /api/v1/tasks/:id` caches individual tasks under `'task_${taskId}'`.
+- **Strict Invalidation:** Successful `POST`, `PUT`, and `DELETE` operations immediately invalidate the relevant cache keys to prevent stale data reads. Invalidation strictly occurs *after* database write confirmation.
+- **Cache Observability:** Console logging (`[Cache] HIT`, `[Cache] MISS`, `[Cache] SET`, `[Cache] INVALIDATED`) and real-time statistics endpoint.
+- **Debug Endpoints:**
+  - `GET /api/v1/cache/stats` — Inspect live cache hit/miss counters (`{ hits, misses }`).
+  - `DELETE /api/v1/cache` — Flush the task cache on demand.
+- **Automated Testing:** 10 automated test suites verifying MISS/HIT transitions, write invalidation, authentication protection, and debug endpoints via `npm test`.
+
+Detailed documentation, architecture diagrams, testing procedures, and response-time comparison templates are documented in:
+
+📄 **[docs/practical-9-caching.md](docs/practical-9-caching.md)**
