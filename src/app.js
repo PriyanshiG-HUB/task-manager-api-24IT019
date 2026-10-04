@@ -7,6 +7,9 @@ const cacheRoutes = require("./routes/cache.routes");
 const { notFoundHandler, errorHandler } = require("./middleware/error.middleware");
 const { sendSuccess } = require("./utils/response");
 
+// Initialize Event Listeners
+require("./events/listeners");
+
 const app = express();
 app.use(cors());
 // Body Parser Middleware   

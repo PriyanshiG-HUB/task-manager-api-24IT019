@@ -354,3 +354,21 @@ Server-side in-memory caching using `node-cache` with strict post-write invalida
 Detailed documentation, architecture diagrams, testing procedures, and response-time comparison templates are documented in:
 
 📄 **[docs/practical-9-caching.md](docs/practical-9-caching.md)**
+
+---
+
+## Practical 10 – Asynchronous Processing with Event-Driven Architecture
+
+Implementation of asynchronous background processing using Node.js native `EventEmitter` without introducing external dependencies. This ensures long-running notifications or side-effects don't block the API response.
+
+### Key Architectural Highlights:
+- **Native Node.js EventEmitter:** Used to build a decoupled observer pattern.
+- **Events:** `task-created`, `task-deleted`, and robust `error` handling.
+- **Asynchronous Notification Listener:** Encapsulated inside `setImmediate()` to ensure non-blocking HTTP response execution.
+- **Timestamp Evidence:** Server logs actively demonstrate timestamps showing the 201 response concludes significantly earlier than the notification listener.
+- **2-second Simulated Delay:** Replicates slow third-party service latency within the background listener.
+- **Error Listener:** Dedicated `error` event listener to catch execution failures without bringing down the main process.
+
+Detailed technical explanation, architecture diagrams, implementation breakdown, and Q&A are documented in:
+
+📄 **[docs/practical-10-event-driven.md](docs/practical-10-event-driven.md)**

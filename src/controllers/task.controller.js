@@ -1,5 +1,6 @@
 const taskService = require("../services/task.service");
 const { sendSuccess, sendError } = require("../utils/response");
+const taskEvents = require("../events/events");
 
 /**
  * Get all tasks
@@ -36,7 +37,13 @@ const getTaskById = async (req, res, next) => {
 const createTask = async (req, res, next) => {
     try {
         const task = await taskService.createTask(req.body);
-        return sendSuccess(res, 201, "Task created successfully", task);
+        
+        console.log(`\n[API] Task created at: ${new Date().toISOString()}`);
+        sendSuccess(res, 201, "Task created successfully", task);
+        console.log(`[API] Response sent at: ${new Date().toISOString()}`);
+        
+        console.log(`[Event] task-created emitted at: ${new Date().toISOString()}`);
+        taskEvents.emit('task-created', task, req.user);
     } catch (error) {
         next(error);
     }
@@ -70,7 +77,10 @@ const deleteTask = async (req, res, next) => {
             return sendError(res, 404, "Task not found");
         }
 
-        return sendSuccess(res, 200, "Task deleted successfully", task);
+        sendSuccess(res, 200, "Task deleted successfully", task);
+        
+        console.log(`[Event] task-deleted emitted at: ${new Date().toISOString()}`);
+        taskEvents.emit('task-deleted', task);
     } catch (error) {
         next(error);
     }
