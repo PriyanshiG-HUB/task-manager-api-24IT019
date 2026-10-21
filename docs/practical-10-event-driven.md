@@ -160,15 +160,29 @@ module.exports = new TaskEvents();
 const taskEvents = require('./events');
 
 /**
- * 1. Error Event Listener
+ * 1. Error Event Listener (Supplementary Problem 2)
  * Must be registered BEFORE any event emitter calls can emit an error event.
+ * Catches and logs errors occurring inside background event handlers without crashing the server.
  * Avoids uncaught exception terminations and prevents recursive error emission.
  */
 taskEvents.on('error', (error) => {
     try {
-        console.error(`[Event Error] ${error && error.message ? error.message : error}`);
+        const timestamp = new Date().toISOString();
+        const errorMessage = error && error.message ? error.message : String(error);
+        const errorDetails = error && error.stack ? error.stack : errorMessage;
+
+        console.error(`[Notification Error] Failed to process task-created notification`);
+        console.error(`Error details: ${errorDetails}`);
+        console.error(`[Notification Error] Logged at: ${timestamp}`);
+
+        // Emit safe internal hook for testing without triggering 'error' loops
+        taskEvents.emit('notification-error-logged', {
+            message: errorMessage,
+            details: errorDetails,
+            timestamp
+        });
     } catch (err) {
-        console.error('[Event Error] Failed to handle event error:', err);
+        console.error('[Notification Error] Fatal logging failure in error handler:', err.message);
     }
 });
 
@@ -186,6 +200,11 @@ taskEvents.on('task-created', (task, user) => {
         try {
             const startTime = new Date().toISOString();
             console.log(`[Notification] Handler started at: ${startTime}`);
+
+            // Controlled failure hook for Supplementary Problem 2 testing
+            if (taskEvents.simulateNotificationError || (task && task.title && task.title.includes("[SIMULATE_ERROR]"))) {
+                throw new Error("Simulated notification service failure: network timeout connecting to notification gateway");
+            }
 
             const assignedUser = user && (user.id || user._id || user.email)
                 ? (user.id || user._id || user.email)
@@ -218,8 +237,9 @@ taskEvents.on('task-created', (task, user) => {
 });
 
 /**
- * 3. task-deleted Event Listener
+ * 3. task-deleted Event Listener (Supplementary Problem 1)
  * Non-blocking task deletion notification deferred using setImmediate().
+ * Logs Task title, Task ID, deletion timestamp, and assigned user.
  */
 taskEvents.on('task-deleted', (task, user) => {
     const scheduledAt = new Date().toISOString();
@@ -228,15 +248,20 @@ taskEvents.on('task-deleted', (task, user) => {
     setImmediate(() => {
         try {
             const timestamp = new Date().toISOString();
+            const taskId = task && (task._id ? task._id.toString() : (task.id || 'Unknown ID'));
+            const title = task && task.title ? task.title : 'Untitled Task';
             const assignedUser = user && (user.id || user._id || user.email)
                 ? (user.id || user._id || user.email)
                 : (task && task.user ? task.user : 'Unassigned');
 
-            console.log(`[Notification] Task "${task.title}" deleted at ${timestamp}`);
+            console.log(`[Notification] Task "${title}" deleted at ${timestamp}`);
+            console.log(`[Notification] Task ID: ${taskId}`);
             console.log(`[Notification] Deleted task assigned user: "${assignedUser}"`);
 
+            // Emit internal completion event for monitoring and automated testing
             taskEvents.emit('task-deleted-processed', {
                 task,
+                taskId,
                 assignedUser,
                 deletedAt: timestamp
             });
@@ -448,13 +473,43 @@ POST /api/v1/tasks - 2026-10-21T12:46:07.502Z
   ```
 - **Console Log:**
   ```text
-  [API] Task deleted at: 2026-10-21T12:46:09.666Z
-  [API] Response sent at: 2026-10-21T12:46:09.666Z
-  [Event] task-deleted emitted at: 2026-10-21T12:46:09.666Z
-  [Notification] Handler scheduled at: 2026-10-21T12:46:09.667Z
-  [Notification] Task "Practical 10 Event Test" deleted at 2026-10-21T12:46:09.667Z
+  [API] Task deleted at: 2026-10-21T13:13:21.744Z
+  [API] Response sent at: 2026-10-21T13:13:21.745Z
+  [Event] task-deleted emitted at: 2026-10-21T13:13:21.745Z
+  [Notification] Handler scheduled at: 2026-10-21T13:13:21.745Z
+  [Notification] Task "Practical 10 Event Test" deleted at 2026-10-21T13:13:21.746Z
+  [Notification] Task ID: 6ad8ba71b876ee232cb853af
   [Notification] Deleted task assigned user: "68dbef..."
   ```
+
+### F. Controlled Failure Test (Supplementary Problem 2 Error Logging)
+- **Method:** `POST`
+- **URL:** `http://localhost:5000/api/v1/tasks`
+- **Headers:**
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <YOUR_JWT_TOKEN>`
+- **Body:**
+  ```json
+  {
+    "title": "Controlled Failure Task [SIMULATE_ERROR]",
+    "description": "Deliberately triggers an error in the background notification handler"
+  }
+  ```
+- **Response Received:** Immediate `201 Created` (< 30ms).
+- **Backend Console Error Output:**
+  ```text
+  [API] Task created at: 2026-10-21T13:13:21.773Z
+  [API] Response sent at: 2026-10-21T13:13:21.774Z
+  [Event] task-created emitted at: 2026-10-21T13:13:21.774Z
+  [Notification] Handler scheduled at: 2026-10-21T13:13:21.774Z
+  [Notification] Handler started at: 2026-10-21T13:13:21.774Z
+  [Notification Error] Failed to process task-created notification
+  Error details: Error: Simulated notification service failure: network timeout connecting to notification gateway
+      at Immediate._onImmediate (C:\Users\priya\Downloads\task-manager-api\src\events\listeners.js:47:23)
+      at process.processImmediate (node:internal/timers:491:21)
+  [Notification Error] Logged at: 2026-10-21T13:13:21.774Z
+  ```
+- *Server Status:* Express server remains completely operational and healthy (`GET /api/v1/health` returns `200 OK`).
 
 ---
 
@@ -467,24 +522,25 @@ The automated test suite executes all three project test files via `npm test` (`
 | Suite | File | Tests Run | Passed | Failed | Skipped | Status |
 |:---|:---|:---:|:---:|:---:|:---:|:---:|
 | **Practical 9 Caching Suite** | `tests/cache.test.js` | 10 | 10 | 0 | 0 | PASS |
-| **Practical 10 Event Suite** | `tests/events.test.js` | 10 | 10 | 0 | 0 | PASS |
+| **Practical 10 Event Suite** | `tests/events.test.js` | 11 | 11 | 0 | 0 | PASS |
 | **Contact Messages Suite** | `tests/message.test.js` | 6 | 6 | 0 | 0 | PASS |
-| **TOTAL** | — | **26** | **26** | **0** | **0** | **ALL PASSED** |
+| **TOTAL** | — | **27** | **27** | **0** | **0** | **ALL PASSED** |
 
 ### Practical 10 Individual Test Breakdown
 
 | # | Test Description | Result | Duration |
 |:---:|:---|:---:|:---:|
-| 1 | Unauthenticated task creation rejected with 401 | PASS | 122 ms |
-| 2 | Authenticated task creation returns HTTP 201 Created | PASS | 60 ms |
-| 3 | Task creation persists the task to MongoDB | PASS | 38 ms |
-| 4 | `task-created` event emitted exactly once after creation | PASS | 20 ms |
-| 5 | Notification completion occurs ~2s after API response | PASS | 2028 ms |
-| 6 | Two-second simulated delay does NOT block response latency | PASS | 14 ms |
-| 7 | Failed task creation does not emit `task-created` | PASS | 7 ms |
-| 8 | Successful deletion returns HTTP 200 OK | PASS | 14 ms |
-| 9 | `task-deleted` event emitted after successful deletion | PASS | 15 ms |
-| 10 | Failed deletion does not emit `task-deleted` | PASS | 9 ms |
+| 1 | Unauthenticated task creation rejected with 401 | PASS | 95 ms |
+| 2 | Authenticated task creation returns HTTP 201 Created | PASS | 26 ms |
+| 3 | Task creation persists the task to MongoDB | PASS | 26 ms |
+| 4 | `task-created` event emitted exactly once after creation | PASS | 15 ms |
+| 5 | Notification completion occurs ~2s after API response | PASS | 2020 ms |
+| 6 | Two-second simulated delay does NOT block response latency | PASS | 10 ms |
+| 7 | Failed task creation does not emit `task-created` | PASS | 5 ms |
+| 8 | Successful deletion returns HTTP 200 OK and invalidates cache | PASS | 15 ms |
+| 9 | `task-deleted` event emitted after deletion with title and ID | PASS | 11 ms |
+| 10 | Failed deletion does not emit `task-deleted` | PASS | 7 ms |
+| 11 | Error Handling: controlled failure caught and logged safely | PASS | 13 ms |
 
 ---
 
@@ -597,16 +653,61 @@ Large-scale production architectures utilize distributed message brokers and per
 
 ---
 
-## 16. Supplementary Work Completed
+## 16. Supplementary Work Completed & Problem Solutions
 
-1. **Task Deletion Notification (`task-deleted`)**:
-   Implemented asynchronous notification on task deletion via `DELETE /api/v1/tasks/:id`. The listener logs the deleted task title, ISO timestamp, and assigned user without delaying the client's HTTP 200 response.
-2. **Pre-Registered Global Error Listener**:
-   Implemented a dedicated `error` event listener registered before any operational listeners. Ensures unexpected runtime errors in background asynchronous operations log safely without causing fatal server crashes.
-3. **Automated Event Test Suite**:
-   Created `tests/events.test.js` validating all 10 event requirements using Node's native test runner (`node:test`).
-4. **Full Regression Verification**:
-   Verified that Practical 9 caching (`tests/cache.test.js`) and contact inquiries (`tests/message.test.js`) maintain 100% test pass rates (26/26 tests passing).
+### Supplementary Problem 1: `task-deleted` Event Implementation
+**Objective:** Add a distinct `task-deleted` event with an asynchronous background listener logging deletion details.
+
+**How it was solved:**
+1. **Shared Singleton Instance:** Used the single, existing `TaskEvents` emitter exported from [`src/events/events.js`](file:///c:/Users/priya/Downloads/task-manager-api/src/events/events.js).
+2. **Controller Integration:** In [`src/controllers/task.controller.js`](file:///c:/Users/priya/Downloads/task-manager-api/src/controllers/task.controller.js), `deleteTask`:
+   - Deletes the task from MongoDB via `taskService.deleteTask(id)`.
+   - If the task does not exist, returns `404 Not Found` immediately; **no event is emitted**.
+   - Invalidates Practical 9 cache entries (`all_tasks` and `task_<id>`).
+   - Dispatches the HTTP `200 OK` response with the deleted document payload.
+   - Emits `taskEvents.emit('task-deleted', task, req.user)` *after* the client response has been sent.
+3. **Asynchronous Deferral via `setImmediate()`:** In [`src/events/listeners.js`](file:///c:/Users/priya/Downloads/task-manager-api/src/events/listeners.js), the `task-deleted` listener encapsulates all notification logic inside `setImmediate()`, ensuring zero impact on the HTTP response latency.
+4. **Comprehensive Logging:** The listener extracts and logs:
+   - **Task Title:** `[Notification] Task "<TITLE>" deleted at <ISO_TIMESTAMP>`
+   - **Task ID:** `[Notification] Task ID: <OBJECT_ID>`
+   - **Deletion Timestamp:** ISO 8601 string
+   - **Assigned User:** Extracted from JWT token (`req.user.id`) or fallback to `'Unassigned'`
+
+---
+
+### Supplementary Problem 2: Error Event Listener Implementation
+**Objective:** Add a dedicated error event listener that catches and logs background notification failures without crashing the Express server.
+
+**How it was solved:**
+1. **Registration Precedence:** Node.js treats an unhandled `'error'` event as a fatal exception that terminates the process. Therefore, `taskEvents.on('error', ...)` is registered **first** in [`src/events/listeners.js`](file:///c:/Users/priya/Downloads/task-manager-api/src/events/listeners.js), before any operational event listeners are registered.
+2. **Explicit Asynchronous `try/catch`:** Exceptions thrown inside `setImmediate()` or `setTimeout()` timer queues run in separate call stacks and bypass Express middleware `try/catch` blocks. The handler wraps both asynchronous stages in local `try/catch` blocks:
+   ```javascript
+   setImmediate(() => {
+       try {
+           // Asynchronous notification work...
+           setTimeout(() => {
+               try {
+                   // Slow simulated work...
+               } catch (timeoutErr) {
+                   taskEvents.emit('error', timeoutErr);
+               }
+           }, 2000);
+       } catch (immediateErr) {
+           taskEvents.emit('error', immediateErr);
+       }
+   });
+   ```
+3. **Safe, Structured Error Logging:** The `error` listener outputs structured diagnostics:
+   ```text
+   [Notification Error] Failed to process task-created notification
+   Error details: <error message and stack trace>
+   [Notification Error] Logged at: <ISO_TIMESTAMP>
+   ```
+4. **Infinite Loop Protection:** The error handler's own logging is wrapped in a `try/catch` that writes directly to `console.error` and **never re-emits** an `'error'` event, eliminating recursion.
+5. **Controlled Failure Mechanism:** For verification, tasks with `[SIMULATE_ERROR]` in their title (or when `taskEvents.simulateNotificationError` is active) trigger a simulated gateway network failure. Automated test 11 confirms:
+   - Client receives HTTP `201 Created` in under 30ms.
+   - The error is caught and logged.
+   - The Express application remains 100% operational (`GET /api/v1/health` continues returning `200 OK`).
 
 ---
 

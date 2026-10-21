@@ -6,6 +6,7 @@ require("dotenv").config();
 
 const app = require("../src/app");
 const Task = require("../src/models/Task");
+const cache = require("../src/config/cache");
 const taskEvents = require("../src/events/events");
 
 const JWT_SECRET = process.env.JWT_SECRET || "task_manager_practical7_secret_2026";
@@ -268,15 +269,22 @@ describe("Practical 10 — Event-Driven Architecture & Asynchronous Notification
         assert.equal(eventFired, false, "task-created must NOT be emitted for failed validation or creation");
     });
 
-    // 8. Successful deletion returns the expected response
-    it("8. Deletion: successful deletion returns HTTP 200 and standard response", async () => {
+    // 8. Successful deletion returns the expected response and invalidates cache (Supplementary Problem 1)
+    it("8. Deletion & Cache: successful deletion returns HTTP 200 and invalidates cache", async () => {
         // Create task directly in DB
         const taskToDelete = await Task.create({
             title: "Task for Deletion Test - " + Date.now(),
             priority: "low"
         });
+        const taskId = taskToDelete._id.toString();
 
-        const res = await fetch(`${baseUrl}/tasks/${taskToDelete._id}`, {
+        // Populate cache to test invalidation
+        cache.set("all_tasks", [taskToDelete]);
+        cache.set(`task_${taskId}`, taskToDelete);
+        assert.ok(cache.raw.get("all_tasks") !== undefined);
+        assert.ok(cache.raw.get(`task_${taskId}`) !== undefined);
+
+        const res = await fetch(`${baseUrl}/tasks/${taskId}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${authToken}` }
         });
@@ -285,19 +293,24 @@ describe("Practical 10 — Event-Driven Architecture & Asynchronous Notification
         assert.equal(res.status, 200);
         assert.equal(json.success, true);
         assert.equal(json.message, "Task deleted successfully");
-        assert.equal(json.data._id, taskToDelete._id.toString());
+        assert.equal(json.data._id, taskId);
 
         // Verify removed from MongoDB
-        const check = await Task.findById(taskToDelete._id);
+        const check = await Task.findById(taskId);
         assert.equal(check, null);
+
+        // Verify Practical 9 cache entries were invalidated
+        assert.equal(cache.raw.get("all_tasks"), undefined);
+        assert.equal(cache.raw.get(`task_${taskId}`), undefined);
     });
 
-    // 9. task-deleted is emitted after successful deletion
-    it("9. Event Emission: task-deleted is emitted after successful deletion", async () => {
+    // 9. task-deleted is emitted after successful deletion with task title and task ID
+    it("9. Event Emission: task-deleted is emitted after deletion with title, ID, and user", async () => {
         const taskToDelete = await Task.create({
             title: "Task to Verify Deletion Event - " + Date.now(),
             priority: "medium"
         });
+        const taskId = taskToDelete._id.toString();
 
         const deletionPromise = new Promise((resolve) => {
             taskEvents.once("task-deleted-processed", (data) => {
@@ -305,7 +318,7 @@ describe("Practical 10 — Event-Driven Architecture & Asynchronous Notification
             });
         });
 
-        const res = await fetch(`${baseUrl}/tasks/${taskToDelete._id}`, {
+        const res = await fetch(`${baseUrl}/tasks/${taskId}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${authToken}` }
         });
@@ -314,7 +327,9 @@ describe("Practical 10 — Event-Driven Architecture & Asynchronous Notification
         assert.equal(res.status, 200);
         const data = await deletionPromise;
         assert.equal(data.task.title, taskToDelete.title);
+        assert.equal(data.taskId, taskId);
         assert.equal(data.assignedUser, "test_user_p10");
+        assert.ok(data.deletedAt);
     });
 
     // 10. Failed deletion does not emit task-deleted
@@ -339,5 +354,61 @@ describe("Practical 10 — Event-Driven Architecture & Asynchronous Notification
         assert.equal(res.status, 404);
         assert.equal(json.success, false);
         assert.equal(deleteEventFired, false, "task-deleted must NOT be emitted when task does not exist");
+    });
+
+    // 11. Supplementary Problem 2: Error Event Listener & Controlled Failure
+    it("11. Error Handling: controlled failure in task-created notification is caught and logged without crashing server", async () => {
+        let errorCaught = false;
+        let capturedErrorPayload = null;
+
+        const errorPromise = new Promise((resolve) => {
+            const onErrorLogged = (info) => {
+                errorCaught = true;
+                capturedErrorPayload = info;
+                taskEvents.removeListener("notification-error-logged", onErrorLogged);
+                resolve(info);
+            };
+            taskEvents.on("notification-error-logged", onErrorLogged);
+        });
+
+        const payload = {
+            title: "Controlled Failure Task [SIMULATE_ERROR] - " + Date.now(),
+            description: "Testing error event listener catch mechanism",
+            priority: "high"
+        };
+
+        const startTime = Date.now();
+        const res = await fetch(`${baseUrl}/tasks`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${authToken}`
+            },
+            body: JSON.stringify(payload)
+        });
+        const responseLatencyMs = Date.now() - startTime;
+        const json = await res.json();
+        cleanupTaskIds.push(json.data._id);
+
+        // 1. Verify HTTP 201 response was NOT delayed and client got success
+        assert.equal(res.status, 201);
+        assert.equal(json.success, true);
+        assert.ok(
+            responseLatencyMs < 800,
+            `Expected HTTP response < 800ms, actual latency: ${responseLatencyMs}ms`
+        );
+
+        // 2. Wait for background error event listener to catch and log
+        const errorInfo = await errorPromise;
+        assert.equal(errorCaught, true);
+        assert.match(errorInfo.message, /Simulated notification service failure/);
+        assert.ok(errorInfo.timestamp);
+
+        // 3. Verify Express server remains fully operational after notification failure
+        const healthRes = await fetch(`${baseUrl}/health`);
+        const healthJson = await healthRes.json();
+        assert.equal(healthRes.status, 200);
+        assert.equal(healthJson.success, true);
+        assert.equal(healthJson.data.status, "ok");
     });
 });

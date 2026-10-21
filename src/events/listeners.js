@@ -1,15 +1,29 @@
 const taskEvents = require('./events');
 
 /**
- * 1. Error Event Listener
+ * 1. Error Event Listener (Supplementary Problem 2)
  * Must be registered BEFORE any event emitter calls can emit an error event.
+ * Catches and logs errors occurring inside background event handlers without crashing the server.
  * Avoids uncaught exception terminations and prevents recursive error emission.
  */
 taskEvents.on('error', (error) => {
     try {
-        console.error(`[Event Error] ${error && error.message ? error.message : error}`);
+        const timestamp = new Date().toISOString();
+        const errorMessage = error && error.message ? error.message : String(error);
+        const errorDetails = error && error.stack ? error.stack : errorMessage;
+
+        console.error(`[Notification Error] Failed to process task-created notification`);
+        console.error(`Error details: ${errorDetails}`);
+        console.error(`[Notification Error] Logged at: ${timestamp}`);
+
+        // Emit safe internal hook for testing without triggering 'error' loops
+        taskEvents.emit('notification-error-logged', {
+            message: errorMessage,
+            details: errorDetails,
+            timestamp
+        });
     } catch (err) {
-        console.error('[Event Error] Failed to handle event error:', err);
+        console.error('[Notification Error] Fatal logging failure in error handler:', err.message);
     }
 });
 
@@ -27,6 +41,11 @@ taskEvents.on('task-created', (task, user) => {
         try {
             const startTime = new Date().toISOString();
             console.log(`[Notification] Handler started at: ${startTime}`);
+
+            // Controlled failure hook for Supplementary Problem 2 testing
+            if (taskEvents.simulateNotificationError || (task && task.title && task.title.includes("[SIMULATE_ERROR]"))) {
+                throw new Error("Simulated notification service failure: network timeout connecting to notification gateway");
+            }
 
             const assignedUser = user && (user.id || user._id || user.email)
                 ? (user.id || user._id || user.email)
@@ -59,8 +78,9 @@ taskEvents.on('task-created', (task, user) => {
 });
 
 /**
- * 3. task-deleted Event Listener
+ * 3. task-deleted Event Listener (Supplementary Problem 1)
  * Non-blocking task deletion notification deferred using setImmediate().
+ * Logs Task title, Task ID, deletion timestamp, and assigned user.
  */
 taskEvents.on('task-deleted', (task, user) => {
     const scheduledAt = new Date().toISOString();
@@ -69,16 +89,20 @@ taskEvents.on('task-deleted', (task, user) => {
     setImmediate(() => {
         try {
             const timestamp = new Date().toISOString();
+            const taskId = task && (task._id ? task._id.toString() : (task.id || 'Unknown ID'));
+            const title = task && task.title ? task.title : 'Untitled Task';
             const assignedUser = user && (user.id || user._id || user.email)
                 ? (user.id || user._id || user.email)
                 : (task && task.user ? task.user : 'Unassigned');
 
-            console.log(`[Notification] Task "${task.title}" deleted at ${timestamp}`);
+            console.log(`[Notification] Task "${title}" deleted at ${timestamp}`);
+            console.log(`[Notification] Task ID: ${taskId}`);
             console.log(`[Notification] Deleted task assigned user: "${assignedUser}"`);
 
             // Emit internal completion event for monitoring and automated testing
             taskEvents.emit('task-deleted-processed', {
                 task,
+                taskId,
                 assignedUser,
                 deletedAt: timestamp
             });
