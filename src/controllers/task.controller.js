@@ -77,10 +77,12 @@ const deleteTask = async (req, res, next) => {
             return sendError(res, 404, "Task not found");
         }
 
+        console.log(`\n[API] Task deleted at: ${new Date().toISOString()}`);
         sendSuccess(res, 200, "Task deleted successfully", task);
-        
+        console.log(`[API] Response sent at: ${new Date().toISOString()}`);
+
         console.log(`[Event] task-deleted emitted at: ${new Date().toISOString()}`);
-        taskEvents.emit('task-deleted', task);
+        taskEvents.emit('task-deleted', task, req.user);
     } catch (error) {
         next(error);
     }

@@ -50,7 +50,6 @@ const createTask = async (taskData) => {
  */
 const updateTask = async (id, updateData) => {
     const task = await Task.findByIdAndUpdate(id, updateData, {
-        new: true,
         returnDocument: "after",
         runValidators: true
     });

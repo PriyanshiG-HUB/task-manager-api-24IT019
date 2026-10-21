@@ -8,9 +8,10 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Enrollment No.:** 24IT019
 - **Course:** Advanced Web Development Frameworks
 - **Course Code:** ITUE301
-- **Practical:** 7 (Authentication and Middleware Pipeline), 8 (Performance Optimization and Lazy Loading) & 9 (In-Memory Caching and Query Optimization)
+- **Practical:** 7 (Authentication and Middleware Pipeline), 8 (Performance Optimization and Lazy Loading), 9 (In-Memory Caching and Query Optimization) & 10 (Asynchronous Processing with Event-Driven Architecture)
 - **Practical 8 Documentation:** [docs/practical-8-performance.md](docs/practical-8-performance.md)
 - **Practical 9 Documentation:** [docs/practical-9-caching.md](docs/practical-9-caching.md)
+- **Practical 10 Documentation:** [docs/practical-10-event-driven.md](docs/practical-10-event-driven.md)
 
 ---
 
