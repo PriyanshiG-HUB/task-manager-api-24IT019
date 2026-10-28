@@ -8,7 +8,7 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Enrollment No.:** 24IT019
 - **Course:** Advanced Web Development Frameworks
 - **Course Code:** ITUE301
-- **Practical:** 7 (Authentication and Middleware Pipeline), 8 (Performance Optimization and Lazy Loading), 9 (In-Memory Caching and Query Optimization) & 10 (Asynchronous Processing with Event-Driven Architecture)
+- **Practical:** 7 (Authentication and Middleware Pipeline), 8 (Performance Optimization and Lazy Loading), 9 (In-Memory Caching and Query Optimization), 10 (Asynchronous Processing with Event-Driven Architecture) & 11 (Full-Stack Containerization with Docker and Docker Compose)
 - **Practical 8 Documentation:** [docs/practical-8-performance.md](docs/practical-8-performance.md)
 - **Practical 9 Documentation:** [docs/practical-9-caching.md](docs/practical-9-caching.md)
 - **Practical 10 Documentation:** [docs/practical-10-event-driven.md](docs/practical-10-event-driven.md)
@@ -372,4 +372,208 @@ Implementation of asynchronous background processing using Node.js native `Event
 
 Detailed technical explanation, architecture diagrams, implementation breakdown, and Q&A are documented in:
 
-📄 **[docs/practical-10-event-driven.md](docs/practical-10-event-driven.md)**
+📄 **[docs/practical-10-event-driven.md](docs/practical-10-event-driven.md)**
+
+---
+
+## Practical 11 — Full-Stack Containerization with Docker and Docker Compose
+
+Comprehensive containerization of the full-stack Task Management application orchestrating the React frontend, Node.js/Express backend API, and MongoDB database using **Docker** and **Docker Compose**.
+
+### 1. Architecture Overview
+
+The multi-container application is defined in [`docker-compose.yml`](docker-compose.yml) and consists of three isolated services interconnected via a user-defined bridge network:
+
+```text
+               Browser / Client Machine
+                 │                 │
+                 │ :5173           │ :5000
+                 ▼                 ▼
+     ┌──────────────────────┐   ┌──────────────────────┐
+     │  Frontend Container  │   │   Backend Container  │
+     │     (Nginx:alpine)   │   │  (Node:22-alpine)    │
+     │  React SPA on :5173  │   │  Express API on :5000│
+     └──────────┬───────────┘   └──────────┬───────────┘
+                │                          │
+                │     Docker Bridge        │
+                │  Network (`app-network`) │
+                └──────────────┬───────────┘
+                               │
+                               │ :27017 (`mongodb:27017`)
+                               ▼
+                    ┌──────────────────────┐
+                    │  Database Container  │
+                    │     (mongo:7.0)      │
+                    │   MongoDB on :27017  │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │  Named Docker Volume │
+                    │    (`mongo_data`)    │
+                    │    Mounted /data/db  │
+                    └──────────────────────┘
+```
+
+- **Frontend Service (`frontend`):** Vite React Single Page Application compiled via a multi-stage Docker build and served using an ultra-lightweight Nginx container (`nginx:alpine`) on port `5173`.
+- **Backend Service (`backend`):** Node.js / Express REST API running on `node:22-alpine` on port `5000` with native EventEmitter, caching, and health endpoints.
+- **Database Service (`mongodb`):** Official MongoDB container (`mongo:7.0`) published on port `27017` with built-in healthcheck.
+- **Network (`app-network`):** User-defined Docker bridge network providing isolated automatic DNS service discovery between containers.
+- **Persistent Storage (`mongo_data`):** Named Docker volume mounted at `/data/db` ensuring database collections persist across container lifecycles.
+
+---
+
+### 2. Relevant Project Structure
+
+```text
+task-manager-api/
+├── .dockerignore                 # Backend Docker build exclusion rules
+├── Dockerfile                    # Backend production Dockerfile (node:22-alpine)
+├── docker-compose.yml            # Multi-container orchestration specification
+├── frontend/
+│   ├── .dockerignore             # Frontend Docker build exclusion rules
+│   ├── Dockerfile                # Multi-stage frontend Dockerfile (node -> nginx)
+│   ├── nginx.conf                # Nginx SPA fallback configuration (port 5173)
+│   └── src/lib/api.ts            # Client API client with VITE_API_BASE_URL support
+├── src/                          # Express API source code (controllers, models, routes)
+└── README.md
+```
+
+---
+
+### 3. Service Endpoints & Access URLs
+
+| Service | Container Port | Host Published Port | Access URL | Health Check URL |
+|:---|:---:|:---:|:---|:---|
+| **Frontend** | `5173` | `5173` | [`http://localhost:5173`](http://localhost:5173) | N/A (Static SPA) |
+| **Backend API** | `5000` | `5000` | [`http://localhost:5000/api/v1`](http://localhost:5000/api/v1) | [`http://localhost:5000/api/v1/health`](http://localhost:5000/api/v1/health) |
+| **MongoDB** | `27017` | `27017` | `localhost:27017` | `mongosh --eval "db.adminCommand('ping')"` |
+
+---
+
+### 4. Prerequisites
+
+1. **Docker Engine & CLI:** Docker Desktop v24+ (Windows / macOS / Linux).
+2. **Docker Compose:** Docker Compose v2+ (`docker compose`).
+3. Verify installation:
+   ```powershell
+   docker --version
+   docker compose version
+   docker info
+   ```
+
+---
+
+### 5. Environment Configuration
+
+Docker Compose automatically injects runtime configuration into the backend container, avoiding the need to commit `.env` files into Docker images:
+
+- `PORT=5000`
+- `NODE_ENV=production`
+- `MONGO_URI=mongodb://mongodb:27017/task_manager`
+- `JWT_SECRET=task_manager_practical7_secret_2026`
+- `CACHE_TTL=60`
+
+> **Security Guarantee:** Real credentials and `.env` files are strictly excluded from Docker build contexts via `.dockerignore`. Local development continues to use `.env` independently.
+
+---
+
+### 6. Build and Run Commands
+
+#### A. Build and Start All Services
+Build images and launch containers in the foreground to inspect live logs:
+```powershell
+docker compose up --build
+```
+
+#### B. Run in Detached Mode (Background)
+```powershell
+docker compose up --build -d
+```
+
+#### C. Inspect Running Services
+Check container health, status, and port bindings:
+```powershell
+docker compose ps
+```
+Inspect detailed Docker container info:
+```powershell
+docker ps
+```
+
+#### D. View Real-Time Logs
+Follow live aggregated logs from all services:
+```powershell
+docker compose logs -f
+```
+Or stream logs for a single service:
+```powershell
+docker compose logs -f backend
+docker compose logs -f mongodb
+docker compose logs -f frontend
+```
+
+#### E. Stop All Services
+Stop and remove containers and networks while preserving named volumes:
+```powershell
+docker compose down
+```
+
+---
+
+### 7. MongoDB Data Persistence
+
+MongoDB stores all database collections inside `/data/db`. In `docker-compose.yml`, this path is mapped to the named volume `mongo_data`:
+
+```yaml
+volumes:
+  - mongo_data:/data/db
+```
+
+- **Persistence Guarantee:** When running `docker compose down`, the containers and `app-network` are removed, but the `mongo_data` volume is **retained**.
+- When `docker compose up -d` is run again, MongoDB re-attaches to `mongo_data`, and all created tasks, users, and contact messages remain intact.
+- *Caution:* Never use `docker compose down -v` unless you explicitly want to purge all database records.
+
+---
+
+### 8. Key Concepts & Frequently Asked Questions
+
+#### Q1: Why use `mongodb` instead of `localhost` in `MONGO_URI`?
+Inside a Docker container, `localhost` (and `127.0.0.1`) refers **strictly to that specific container itself**, not to the host machine or other containers. 
+
+When containers are connected to the user-defined bridge network `app-network`, Docker Compose creates an internal DNS resolver. The backend reaches the database container using the service name:
+```text
+mongodb://mongodb:27017/task_manager
+```
+If the backend attempted to connect to `localhost:27017`, it would look for MongoDB inside the backend container where no database server is running, resulting in `ECONNREFUSED`.
+
+#### Q2: What is the difference between `EXPOSE` and `ports`?
+- **`EXPOSE` (Dockerfile):** Acts as internal documentation and metadata. It declares that the container listens on the specified network ports at runtime. However, `EXPOSE` **does not publish** the port to the host machine.
+- **`ports` (docker-compose.yml / `docker run -p`):** Actually allocates and forwards a host port to the container port (e.g., `"5000:5000"`). This makes the container accessible from the host browser and external HTTP clients at `http://localhost:5000`.
+
+#### Q3: Why not copy `node_modules` into Docker images?
+1. **Platform Compatibility:** Local `node_modules` often contain native binaries (C++ add-ons compiled with `node-gyp`) compiled for your host OS (e.g., Windows x64). Copying them into a Linux Alpine container causes binary execution errors.
+2. **Reproducibility & Clean Slate:** Running `npm ci --omit=dev` inside the container guarantees a clean, deterministic dependency tree based strictly on `package-lock.json`.
+3. **Build Context Efficiency:** `node_modules` directories are hundreds of megabytes in size. Excluding them via `.dockerignore` speeds up Docker context transfers from minutes to seconds.
+
+---
+
+### 9. Common Troubleshooting Guide
+
+1. **Port Already in Use (`bind: address already in use`):**
+   - *Cause:* A local MongoDB server or Node dev server is already listening on port 27017 or 5000.
+   - *Fix:* Stop local processes before launching Docker:
+     ```powershell
+     # Stop local background node server or mongod
+     Get-Process node, mongod -ErrorAction SilentlyContinue | Stop-Process
+     ```
+2. **MongoDB Connection Refused from Backend:**
+   - *Cause:* Backend started before MongoDB finished initializing its socket.
+   - *Fix:* In `docker-compose.yml`, the backend declares `depends_on` with `condition: service_healthy` coupled with the `mongodb` healthcheck. Docker Compose guarantees backend startup only after MongoDB's ping check succeeds.
+3. **Frontend Cannot Connect to Backend in Browser:**
+   - *Cause:* Attempting to configure the browser API to `http://backend:5000`. The browser runs on the host machine, which cannot resolve internal Docker Compose service names (`backend`).
+   - *Fix:* Ensure the frontend requests `http://localhost:5000/api/v1` which maps through published host ports.
+4. **Docker Desktop Not Running (`open //./pipe/dockerDesktopLinuxEngine`):**
+   - *Cause:* Docker daemon is not active on Windows.
+   - *Fix:* Launch Docker Desktop from the Start Menu or run `Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`. Wait until Docker Desktop reports "Engine running".
+
