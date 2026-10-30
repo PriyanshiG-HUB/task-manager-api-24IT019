@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const taskRoutes = require("./routes/task.routes");
 const authRoutes = require("./routes/auth.routes");
 const cacheRoutes = require("./routes/cache.routes");
+const messageRoutes = require("./routes/message.routes");
+const aiRoutes = require("./routes/ai.routes");
 const { notFoundHandler, errorHandler } = require("./middleware/error.middleware");
 const { sendSuccess } = require("./utils/response");
 
@@ -48,7 +50,6 @@ app.use("/api/v1/cache", cacheRoutes);
 app.use("/cache", cacheRoutes);
 
 // Contact Message Routes (Asynchronous with MongoDB persistence)
-const messageRoutes = require("./routes/message.routes");
 app.use("/api/v1/messages", messageRoutes);
 app.use("/messages", messageRoutes);
 
@@ -57,6 +58,10 @@ app.use("/api/v1/tasks", taskRoutes);
 
 // Legacy Route Compatibility (redirect or mount taskRoutes at /tasks)
 app.use("/tasks", taskRoutes);
+
+// AI Task Description Generation Routes (Practical 13)
+app.use("/api/v1/ai", aiRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Test Error Handler Route (preserved from original)
 app.get("/test-error", (req, res, next) => {
