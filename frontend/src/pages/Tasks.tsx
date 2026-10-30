@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createTask,
+  generateAiDescription,
   deleteTask,
   getTasks,
   getMe,
@@ -40,6 +41,51 @@ export default function Tasks() {
   const [editPriority, setEditPriority] = useState<
     "low" | "medium" | "high"
   >("medium");
+
+  const [generatingAi, setGeneratingAi] = useState(false);
+  const [aiMessage, setAiMessage] = useState<{
+    text: string;
+    type: "info" | "warning" | "error" | "success";
+  } | null>(null);
+
+  async function handleGenerateAiDescription() {
+    if (!title.trim()) {
+      setAiMessage({
+        text: "Please enter a task title first to generate an AI description.",
+        type: "warning"
+      });
+      return;
+    }
+
+    try {
+      setGeneratingAi(true);
+      setAiMessage(null);
+
+      const res = await generateAiDescription(title.trim());
+
+      if (res.fallback) {
+        setAiMessage({
+          text: res.message || "AI description generation is temporarily unavailable. Please write your description manually.",
+          type: "warning"
+        });
+      } else if (res.description) {
+        setDescription(res.description);
+        setAiMessage({
+          text: "AI-generated suggestion applied! You can review and edit it before saving.",
+          type: "success"
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to generate AI description";
+      setAiMessage({
+        text: msg,
+        type: "error"
+      });
+    } finally {
+      setGeneratingAi(false);
+    }
+  }
+
 
   function showToast(message: string, type: "success" | "error" = "success") {
     setToast({ message, type });
@@ -312,9 +358,47 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Description
-              </label>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-slate-700">
+                  Description
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateAiDescription}
+                  disabled={generatingAi || !title.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  title={!title.trim() ? "Enter a task title first" : "Generate description using OpenAI"}
+                >
+                  {generatingAi ? (
+                    <>
+                      <svg className="h-3.5 w-3.5 animate-spin text-purple-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Generating with AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span aria-hidden="true">✨</span>
+                      <span>Generate description with AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {aiMessage && (
+                <div
+                  className={`mb-2 rounded-lg px-3 py-2 text-xs font-medium ${
+                    aiMessage.type === "success"
+                      ? "border border-green-200 bg-green-50 text-green-800"
+                      : aiMessage.type === "warning"
+                      ? "border border-amber-200 bg-amber-50 text-amber-800"
+                      : "border border-red-200 bg-red-50 text-red-800"
+                  }`}
+                >
+                  {aiMessage.text}
+                </div>
+              )}
 
               <textarea
                 value={description}
@@ -325,6 +409,10 @@ export default function Tasks() {
                 rows={3}
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500"
               />
+
+              <p className="mt-1.5 text-xs text-slate-500">
+                AI-generated suggestion. Please review and edit before saving. AI-generated content may be inaccurate.
+              </p>
             </div>
 
             <div>

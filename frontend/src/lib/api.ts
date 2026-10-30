@@ -204,3 +204,49 @@ export async function getContactMessages(): Promise<ContactMessage[]> {
   return handleResponse<ContactMessage[]>(response);
 }
 
+
+
+// ==================== AI TASK DESCRIPTION APIS (PRACTICAL 13) ====================
+
+export interface AiDescriptionResponse {
+  success: boolean;
+  description: string;
+  fallback: boolean;
+  message?: string;
+  retryAfter?: number;
+}
+
+/**
+ * Request AI-generated description for a task title from the backend.
+ * Never accesses OpenAI directly from the frontend.
+ */
+export async function generateAiDescription(
+  title: string
+): Promise<AiDescriptionResponse> {
+  const response = await fetch(`${API_BASE_URL}/ai/generate-description`, {
+    method: "POST",
+    headers: getHeaders(true),
+    body: JSON.stringify({ title }),
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (response.status === 429) {
+    throw new Error(
+      result.message ||
+        "Rate limit exceeded. Please wait a minute before generating another description for this task."
+    );
+  }
+
+  if (response.status === 401) {
+    throw new Error(
+      result.message || "Authentication required. Please log in again."
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to generate AI description");
+  }
+
+  return result as AiDescriptionResponse;
+}
