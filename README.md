@@ -8,7 +8,7 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Enrollment No.:** 24IT019
 - **Course:** Advanced Web Development Frameworks
 - **Course Code:** ITUE301
-- **Practical:** 7 (Authentication and Middleware Pipeline), 8 (Performance Optimization and Lazy Loading), 9 (In-Memory Caching and Query Optimization), 10 (Asynchronous Processing with Event-Driven Architecture) & 11 (Full-Stack Containerization with Docker and Docker Compose)
+- **Practical:** 7 (Authentication and Middleware Pipeline), 8 (Performance Optimization and Lazy Loading), 9 (In-Memory Caching and Query Optimization), 10 (Asynchronous Processing with Event-Driven Architecture), 11 (Full-Stack Containerization with Docker), 12 (CI/CD Pipeline with GitHub Actions) & 13 (AI API Integration with OpenAI)
 - **Practical 8 Documentation:** [docs/practical-8-performance.md](docs/practical-8-performance.md)
 - **Practical 9 Documentation:** [docs/practical-9-caching.md](docs/practical-9-caching.md)
 - **Practical 10 Documentation:** [docs/practical-10-event-driven.md](docs/practical-10-event-driven.md)
@@ -576,4 +576,98 @@ If the backend attempted to connect to `localhost:27017`, it would look for Mong
 4. **Docker Desktop Not Running (`open //./pipe/dockerDesktopLinuxEngine`):**
    - *Cause:* Docker daemon is not active on Windows.
    - *Fix:* Launch Docker Desktop from the Start Menu or run `Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`. Wait until Docker Desktop reports "Engine running".
-
+
+
+---
+
+## Practical 13 — AI API Integration with OpenAI & Responsible AI Architecture
+
+### 1. Overview & Objective
+Practical 13 integrates an AI-powered task description generator into the Task Management application using the official OpenAI Node.js SDK and the `gpt-4o-mini` model. When creating a task, users can provide a task title and click **"Generate description with AI"** to receive a concise, actionable, and editable description suggestion.
+
+### 2. Architecture & Data Flow
+```text
+React Client (Tasks.tsx)
+    │
+    │  1. User clicks "Generate description with AI" (title provided)
+    ▼  POST /api/v1/ai/generate-description (Bearer <token>, { title })
+Express Router & Auth Middleware
+    │
+    │  2. Authenticates JWT Bearer token & sets req.user
+    ▼
+AI Rate Limiter Middleware (aiRateLimit.middleware.js)
+    │
+    │  3. Validates 60s window per task context (${userId}:${normalizedTitle})
+    │     (Rejects rapid duplicate requests with HTTP 429 & Retry-After)
+    ▼
+AI Controller & Service (ai.service.js)
+    │
+    │  4. Validates title (non-empty, <= 200 chars)
+    │  5. Calls OpenAI Chat Completions API (model: gpt-4o-mini, max_tokens: 150)
+    │     (With 10s request timeout & graceful fallback error catching)
+    ▼
+OpenAI API Cloud Service
+    │
+    │  6. Generates concise plain-text description
+    ▼
+Express Response -> React Client
+    │
+    │  7. Populates editable textarea with suggestion
+    ▼
+User reviews, edits, and manually submits task
+```
+
+### 3. API Key Security & Isolation
+- **Backend-Only Storage:** The OpenAI API key (`OPENAI_API_KEY`) is stored strictly in the backend `.env` file and is accessed exclusively by server-side Node.js runtime code.
+- **No Client Exposure:** The API key is never imported, referenced, or bundled into Vite/React frontend assets. It is never prefixed with `VITE_`.
+- **Zero Secrets in Logs or Responses:** API errors caught by `ai.service.js` sanitize all provider messages to ensure raw keys or credentials are never sent back to the browser or leaked in server logs.
+- **Repository Protection:** `.env` and `.env.*` are excluded via `.gitignore` and `.dockerignore`. Only safe example placeholders are included in `.env.example`.
+
+### 4. Graceful Degradation & Failure Handling
+The system guarantees that core task management features are completely resilient to external AI outages:
+- **Missing or Placeholder Key:** Returns a controlled fallback response (`{ success: true, description: "", fallback: true, message: "AI description generation is temporarily unavailable. Please write your description manually." }`).
+- **Provider Outage / 401 / 429 / Timeout:** The backend catches provider exceptions gracefully, logs a safe diagnostic warning, and returns the fallback payload without crashing or throwing a 500.
+- **Manual Entry Guarantee:** The task description field remains fully editable at all times. Users can always manually write their own descriptions regardless of AI availability.
+
+### 5. Per-Task Rate Limiting
+- **Context Identification:** Rate limits are keyed to `${userId}:${normalizedTitle}` to prevent rapid, repetitive API consumption for the same task.
+- **Window:** 1 AI generation request per task title per 60 seconds.
+- **Response:** HTTP 429 with informative payload:
+  ```json
+  {
+    "success": false,
+    "message": "Rate limit exceeded. Please wait before generating another description for this task.",
+    "retryAfter": 52
+  }
+  ```
+- **Independent Usage:** Rate limits on one task title do not block generation for other tasks or other users.
+
+### 6. Responsible AI & Data Privacy Guidelines
+1. **User Control:** AI-generated descriptions are strictly suggestions. Users remain in complete control and must review, edit, and approve suggestions before saving.
+2. **Prominent UI Disclaimer:** The task form displays a visible reminder:
+   > *"AI-generated suggestion. Please review and edit before saving. AI-generated content may be inaccurate."*
+3. **Data Minimization:** Only the task title is transmitted to the AI provider. No personal identities, user tokens, or extraneous data are included.
+4. **Data Privacy Restrictions:** Never submit the following data into task titles or AI prompts:
+   - Passwords, PINs, or credentials
+   - Authentication tokens, JWTs, or private API keys
+   - Personal identification numbers (SSN, Aadhaar, PAN)
+   - Credit card numbers or financial details
+   - Private personal contact details (phone numbers, private addresses)
+   - Sensitive health or biometric data
+   - Confidential institutional, proprietary, or business data
+5. **AI Limitations:** Generative language models may produce inaccurate, incomplete, or biased suggestions. All generated content must be reviewed by the user prior to persisting tasks.
+
+### 7. Automated Test Suite (Mocked & Deterministic)
+All AI features are covered by automated unit and integration tests using Node's built-in test runner (`tests/ai.test.js`), ensuring CI execution without incurring real API charges:
+1. `Mock Success`: Verifies clean description extraction from OpenAI completions response.
+2. `Missing Key Fallback`: Confirms graceful degradation when no API client is initialized.
+3. `Provider 401 Auth Failure`: Confirms error catching and fallback without crashing.
+4. `Provider Timeout / Network Error`: Verifies timeout handling.
+5. `Security Barrier`: Confirms unauthenticated requests return HTTP 401.
+6. `Validation`: Rejects empty task titles with HTTP 400.
+7. `Validation`: Rejects missing title property with HTTP 400.
+8. `Validation`: Rejects titles exceeding 200 characters with HTTP 400.
+9. `Fallback Response Structure`: Confirms standard JSON shape on fallback.
+10. `Secret Sanitization`: Confirms no API key or token is leaked in HTTP responses.
+11. `Rate Limit Enforcement`: Confirms second request within 60s returns HTTP 429 with `Retry-After`.
+12. `Rate Limit Isolation`: Confirms requests for different titles are not blocked.
