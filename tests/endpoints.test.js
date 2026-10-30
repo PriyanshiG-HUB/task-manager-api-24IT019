@@ -40,7 +40,7 @@ describe("Practical 12 — CI Core Endpoint Integration Suite", () => {
         const res = await fetch(`${baseUrl}/health`);
         const json = await res.json();
 
-        assert.equal(res.status, 201);
+        assert.equal(res.status, 200);
         assert.equal(json.success, true);
         assert.equal(json.message, "API is healthy");
         assert.equal(json.data.status, "ok");
