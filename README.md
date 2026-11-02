@@ -1,5 +1,7 @@
 # Task Manager API — Layered Architecture & Authentication Pipeline
 
+[![CI Pipeline](https://github.com/PriyanshiG-HUB/task-manager-api-24IT019/actions/workflows/ci.yml/badge.svg)](https://github.com/PriyanshiG-HUB/task-manager-api-24IT019/actions/workflows/ci.yml)
+
 A production-ready RESTful Task Management API built using **Node.js, Express.js, MongoDB, Mongoose, bcryptjs, and JSON Web Tokens (JWT)**. Built on a modular layered architecture (Controller-Service-Model pattern) with centralized error handling, response standardization, API versioning, input validation, and JWT-based authentication middleware pipeline.
 
 ## Student Information
@@ -12,6 +14,9 @@ A production-ready RESTful Task Management API built using **Node.js, Express.js
 - **Practical 8 Documentation:** [docs/practical-8-performance.md](docs/practical-8-performance.md)
 - **Practical 9 Documentation:** [docs/practical-9-caching.md](docs/practical-9-caching.md)
 - **Practical 10 Documentation:** [docs/practical-10-event-driven.md](docs/practical-10-event-driven.md)
+- **Practical 11 Documentation:** Full-Stack Containerization with Docker & Compose (Section 6 & 7)
+- **Practical 12 Documentation:** CI/CD Pipeline with GitHub Actions (Section below)
+- **Practical 13 Documentation:** AI API Integration with OpenAI & Responsible AI (Section below)
 
 ---
 
@@ -577,6 +582,122 @@ If the backend attempted to connect to `localhost:27017`, it would look for Mong
    - *Cause:* Docker daemon is not active on Windows.
    - *Fix:* Launch Docker Desktop from the Start Menu or run `Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`. Wait until Docker Desktop reports "Engine running".
 
+---
+
+## Practical 12 — CI/CD Pipeline with GitHub Actions
+
+### 1. Overview & Objectives
+Practical 12 establishes an automated **Continuous Integration (CI)** pipeline using **GitHub Actions**. Whenever code is pushed to the `main` branch (or triggered manually via `workflow_dispatch`), GitHub automatically spins up a clean Ubuntu virtual machine, boots an isolated MongoDB service container, installs backend dependencies via `npm install`, and runs the full automated test suite using Node's built-in test runner (`node:test`).
+
+---
+
+### 2. Workflow Architecture & Configuration
+The pipeline is located at [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+```yaml
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+
+    env:
+      MONGO_URI: mongodb://127.0.0.1:27017/task_manager_test
+      JWT_SECRET: task_manager_ci_test_secret_2026
+      NODE_ENV: test
+      PORT: 5000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run automated tests
+        run: npm test
+```
+
+#### Key Pipeline Characteristics:
+- **Runner:** GitHub-hosted `ubuntu-latest` runner.
+- **Node.js Environment:** Version `22` with npm package cache (`cache: npm`) for fast build times.
+- **Database Service Container:** A dedicated `mongo:6.0` Docker container runs directly inside the GitHub Actions network on port `27017`.
+- **Environment Isolation:** Zero dependencies on a local developer `.env` file. Safe CI test values for `MONGO_URI` and `JWT_SECRET` are injected into the test job runtime.
+
+---
+
+### 3. Automated Endpoint Test Coverage
+In addition to caching (Practical 9) and event-driven architecture (Practical 10), a dedicated endpoint integration suite is provided in [`tests/endpoints.test.js`](tests/endpoints.test.js):
+
+| Endpoint | Method | Expected Status | Response Assertion | Description |
+| :--- | :---: | :---: | :--- | :--- |
+| `/api/v1/health` | `GET` | **200 OK** | `status: "ok"`, `success: true` | Verifies API health and MongoDB connection. |
+| `/api/v1/tasks` | `GET` | **401 Unauthorized** | `message: "Authentication token required"` | Verifies JWT security barrier rejecting unauthenticated requests. |
+| `/api/v1/messages` | `POST` | **400 Bad Request** | `message: "Name is required"` | Verifies request body payload validation on contact inquiries. |
+
+---
+
+### 4. Controlled Failure & Pipeline Recovery Demonstration
+To fulfill the mandatory learning requirement demonstrating a failing CI build followed by its subsequent correction:
+
+1. **Deliberately Failing Test Commit:**
+   - In [`tests/endpoints.test.js`](tests/endpoints.test.js), the expected HTTP status for `GET /api/v1/health` was temporarily changed:
+     ```javascript
+     // Deliberate failure demonstration:
+     assert.equal(res.status, 201); // Actual status returned is 200
+     ```
+   - Committed with message: `test: demonstrate failing CI pipeline`
+   - Pushed to `main`. GitHub Actions executed and failed with a **Red Cross (Failed)**, confirming that broken assertions fail the build.
+2. **Correction & Pipeline Recovery Commit:**
+   - The assertion was restored to the correct value:
+     ```javascript
+     assert.equal(res.status, 200); // Restored correct assertion
+     ```
+   - Verified locally with `npm test` exiting with code 0.
+   - Committed with message: `test: fix assertion and restore passing CI`.
+   - Pushed to `main`. GitHub Actions executed and finished with a **Green Checkmark (Passed)**.
+
+---
+
+### 5. Inspecting Workflow Logs & Interpreting Status
+- **Green Checkmark:** Indicates that dependencies installed cleanly, the MongoDB container initialized, and all 42 automated tests passed successfully with exit code 0.
+- **Red Cross:** Indicates a dependency installation failure, container initialization error, or failed test assertion.
+- **How to Inspect Logs on GitHub:**
+  1. Open the repository on GitHub: [`https://github.com/PriyanshiG-HUB/task-manager-api-24IT019`](https://github.com/PriyanshiG-HUB/task-manager-api-24IT019).
+  2. Click on the **Actions** tab.
+  3. Select the latest workflow run from the list.
+  4. Click on the **Build and Test** job in the left sidebar.
+  5. Expand the **Run automated tests** step to view the detailed TAP (Test Anything Protocol) test execution log.
+
+---
+
+### 6. Workflow Status Badge
+The GitHub Actions badge is embedded at the top of this repository:
+```markdown
+[![CI Pipeline](https://github.com/PriyanshiG-HUB/task-manager-api-24IT019/actions/workflows/ci.yml/badge.svg)](https://github.com/PriyanshiG-HUB/task-manager-api-24IT019/actions/workflows/ci.yml)
+```
 
 ---
 
@@ -585,54 +706,66 @@ If the backend attempted to connect to `localhost:27017`, it would look for Mong
 ### 1. Overview & Objective
 Practical 13 integrates an AI-powered task description generator into the Task Management application using the official OpenAI Node.js SDK and the `gpt-4o-mini` model. When creating a task, users can provide a task title and click **"Generate description with AI"** to receive a concise, actionable, and editable description suggestion.
 
+---
+
 ### 2. Architecture & Data Flow
 ```text
 React Client (Tasks.tsx)
     │
-    │  1. User clicks "Generate description with AI" (title provided)
-    ▼  POST /api/v1/ai/generate-description (Bearer <token>, { title })
-Express Router & Auth Middleware
+    │  1. User enters task title and clicks "✨ Generate description with AI"
+    ▼  POST /api/v1/ai/generate-description (Headers: Authorization: Bearer <token>, Body: { title })
+Express Router & Auth Middleware (auth.middleware.js)
     │
-    │  2. Authenticates JWT Bearer token & sets req.user
+    │  2. Authenticates JWT Bearer token & assigns req.user
     ▼
 AI Rate Limiter Middleware (aiRateLimit.middleware.js)
     │
-    │  3. Validates 60s window per task context (${userId}:${normalizedTitle})
-    │     (Rejects rapid duplicate requests with HTTP 429 & Retry-After)
+    │  3. Validates 60s per-task window (${userId}:${normalizedTitle})
+    │     (If duplicate within 60s -> returns HTTP 429 + Retry-After header)
     ▼
-AI Controller & Service (ai.service.js)
+AI Controller & Service (ai.controller.js -> ai.service.js)
     │
-    │  4. Validates title (non-empty, <= 200 chars)
-    │  5. Calls OpenAI Chat Completions API (model: gpt-4o-mini, max_tokens: 150)
-    │     (With 10s request timeout & graceful fallback error catching)
+    │  4. Validates title (non-empty, max 200 characters)
+    │  5. Calls OpenAI Chat Completions (gpt-4o-mini) with 10s request timeout
     ▼
-OpenAI API Cloud Service
+OpenAI Cloud Provider (or Graceful Fallback if unconfigured/quota exceeded)
     │
-    │  6. Generates concise plain-text description
+    │  6. Generates concise, plain-text task description
     ▼
-Express Response -> React Client
+HTTP Response -> React Client
     │
     │  7. Populates editable textarea with suggestion
     ▼
-User reviews, edits, and manually submits task
+User reviews, edits, and manually submits task form
 ```
 
+---
+
 ### 3. API Key Security & Isolation
-- **Backend-Only Storage:** The OpenAI API key (`OPENAI_API_KEY`) is stored strictly in the backend `.env` file and is accessed exclusively by server-side Node.js runtime code.
-- **No Client Exposure:** The API key is never imported, referenced, or bundled into Vite/React frontend assets. It is never prefixed with `VITE_`.
-- **Zero Secrets in Logs or Responses:** API errors caught by `ai.service.js` sanitize all provider messages to ensure raw keys or credentials are never sent back to the browser or leaked in server logs.
+- **Backend-Only Storage:** The OpenAI API key (`OPENAI_API_KEY`) is stored strictly in the backend `.env` file and is accessed exclusively by server-side Node.js runtime code ([`src/config/openai.js`](src/config/openai.js)).
+- **Zero Client Exposure:** The API key is never imported, referenced, or bundled into Vite/React frontend assets. It is never prefixed with `VITE_`.
+- **Response Sanitization:** Error handlers in [`src/services/ai.service.js`](src/services/ai.service.js) catch exceptions and prevent raw provider error bodies, stack traces, or credentials from leaking to client responses.
 - **Repository Protection:** `.env` and `.env.*` are excluded via `.gitignore` and `.dockerignore`. Only safe example placeholders are included in `.env.example`.
+
+---
 
 ### 4. Graceful Degradation & Failure Handling
 The system guarantees that core task management features are completely resilient to external AI outages:
-- **Missing or Placeholder Key:** Returns a controlled fallback response (`{ success: true, description: "", fallback: true, message: "AI description generation is temporarily unavailable. Please write your description manually." }`).
-- **Provider Outage / 401 / 429 / Timeout:** The backend catches provider exceptions gracefully, logs a safe diagnostic warning, and returns the fallback payload without crashing or throwing a 500.
-- **Manual Entry Guarantee:** The task description field remains fully editable at all times. Users can always manually write their own descriptions regardless of AI availability.
+
+| Failure Scenario | Backend Handling | Frontend User Experience |
+| :--- | :--- | :--- |
+| **Missing API Key** | `getOpenAIClient()` returns `null`. | Returns fallback response (`fallback: true`). Displays amber banner; manual entry stays functional. |
+| **Invalid Key / HTTP 401** | Caught by `try...catch` in `ai.service.js`. | Safe warning logged on server. Returns fallback response without crashing backend. |
+| **Quota Exceeded / HTTP 429** | Caught by `try...catch` in `ai.service.js`. | Returns fallback notice: *"AI description generation is temporarily unavailable. Please write your description manually."* |
+| **Network Timeout (>10s)** | Client aborts request after 10 seconds. | Returns fallback response. Server event loop remains unblocked. |
+| **Rate Limit per Task** | Handled by `aiRateLimit.middleware.js`. | Returns HTTP 429 with `Retry-After` seconds and friendly retry message. |
+
+---
 
 ### 5. Per-Task Rate Limiting
 - **Context Identification:** Rate limits are keyed to `${userId}:${normalizedTitle}` to prevent rapid, repetitive API consumption for the same task.
 - **Window:** 1 AI generation request per task title per 60 seconds.
-- **Response:** HTTP 429 with informative payload:
+- **Response Structure (HTTP 429):**
   ```json
   {
     "success": false,
@@ -640,7 +773,9 @@ The system guarantees that core task management features are completely resilien
     "retryAfter": 52
   }
   ```
-- **Independent Usage:** Rate limits on one task title do not block generation for other tasks or other users.
+- **Isolation:** Users can generate descriptions for different task titles without being blocked by an active cooldown on an earlier title.
+
+---
 
 ### 6. Responsible AI & Data Privacy Guidelines
 1. **User Control:** AI-generated descriptions are strictly suggestions. Users remain in complete control and must review, edit, and approve suggestions before saving.
@@ -657,8 +792,10 @@ The system guarantees that core task management features are completely resilien
    - Confidential institutional, proprietary, or business data
 5. **AI Limitations:** Generative language models may produce inaccurate, incomplete, or biased suggestions. All generated content must be reviewed by the user prior to persisting tasks.
 
+---
+
 ### 7. Automated Test Suite (Mocked & Deterministic)
-All AI features are covered by automated unit and integration tests using Node's built-in test runner (`tests/ai.test.js`), ensuring CI execution without incurring real API charges:
+All AI features are covered by automated unit and integration tests using Node's built-in test runner ([`tests/ai.test.js`](tests/ai.test.js)), ensuring CI execution without incurring real API charges:
 1. `Mock Success`: Verifies clean description extraction from OpenAI completions response.
 2. `Missing Key Fallback`: Confirms graceful degradation when no API client is initialized.
 3. `Provider 401 Auth Failure`: Confirms error catching and fallback without crashing.
@@ -671,3 +808,20 @@ All AI features are covered by automated unit and integration tests using Node's
 10. `Secret Sanitization`: Confirms no API key or token is leaked in HTTP responses.
 11. `Rate Limit Enforcement`: Confirms second request within 60s returns HTTP 429 with `Retry-After`.
 12. `Rate Limit Isolation`: Confirms requests for different titles are not blocked.
+
+---
+
+### 8. Full Application Test Suite Summary
+To verify all 42 automated tests across Practicals 9, 10, 12, and 13:
+```powershell
+npm test
+```
+
+```text
+TAP version 13
+# tests 42
+# suites 7
+# pass 42
+# fail 0
+# cancelled 0
+```
